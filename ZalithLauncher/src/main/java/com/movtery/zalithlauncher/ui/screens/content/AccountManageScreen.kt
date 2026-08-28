@@ -286,12 +286,13 @@ private fun ActionsLayout(
         isHorizontal = true
     )
 
+    var offlineUsername by remember { mutableStateOf("") }
+
     Column(
         modifier = modifier
             .offset { IntOffset(x = xOffset.roundToPx(), y = 0) }
             .fillMaxHeight()
     ) {
-        //玩家模型预览
         val refreshWardrobe by AccountsManager.refreshWardrobe.collectAsStateWithLifecycle()
         val accountSkin = remember(currentAccount, refreshWardrobe) {
             currentAccount?.getSkinFile()?.takeIf { it.exists() }
@@ -349,13 +350,32 @@ private fun ActionsLayout(
             }
         }
 
-        //添加账号
+        androidx.compose.material3.OutlinedTextField(
+            value = offlineUsername,
+            onValueChange = { offlineUsername = it },
+            label = { Text("Kullanıcı Adı (Çevrimdışı)") },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+            singleLine = true
+        )
+
+        ScalingActionButton(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            onClick = {
+                if (offlineUsername.isNotBlank()) {
+                    val offlineUUID = java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:$offlineUsername").toByteArray(Charsets.UTF_8)).toString()
+                    actions.onIntent(AccountManageIntent.CreateLocalAccount(offlineUsername, offlineUUID))
+                    offlineUsername = ""
+                }
+            }
+        ) {
+            MarqueeText(text = "Çevrimdışı Giriş Yap")
+        }
+
         ScalingActionButton(
             modifier = Modifier
                 .fillMaxWidth(),
             onClick = {
                 if (isOffline) {
-                    //非正版状态下，只允许创建微软账号
                     actions.onIntent(AccountManageIntent.UpdateMicrosoftLoginOp(MicrosoftLoginOperation.Tip))
                 } else {
                     actions.onIntent(AccountManageIntent.UpdateLoginMenuOp(LoginMenuOperation.Login))
