@@ -722,7 +722,7 @@ private fun AccountsLayout(
                             .padding(vertical = 6.dp),
                         currentAccount = currentAccount,
                         account = account,
-                        enabled = !isOffline, //非正版状态下不允许选择任何状态
+                        enabled = true, // Kilit kaldirildi! 
                         onSelected = { AccountsManager.setCurrentAccount(it) },
                         openChangeSkinDialog = {
                             if (!account.isAuthServerAccount()) {
@@ -853,33 +853,7 @@ private fun AccountOperation(
                 actions.onIntent(AccountManageIntent.UpdateAccountOp(AccountOperation.None))
             }
         }
-
+        
         is AccountOperation.None -> {}
-    }
-}
-
-@Preview(showBackground = true, widthDp = 800, heightDp = 480)
-@Composable
-private fun AccountManageContentPreview() {
-    CompositionLocalProvider(LocalBackgroundViewModel provides null) {
-        MaterialExpressiveTheme {
-            Surface {
-                AccountManageContent(
-                    isVisible = true,
-                    loginUiState = AccountManageViewModel.LoginUiState(),
-                    profileUiState = AccountManageViewModel.ProfileUiState(),
-                    operationUiState = AccountManageViewModel.OperationUiState(),
-                    actions = AccountActions(
-                        onIntent = {},
-                        openLink = {},
-                        backToMainScreen = {},
-                        navigateToWeb = {},
-                        checkIfInWebScreen = { false },
-                        formatError = { AndroidStringText.Text("") },
-                        submitError = {},
-                    )
-                )
-            }
-        }
     }
 }
