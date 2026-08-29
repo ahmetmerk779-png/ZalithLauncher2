@@ -835,3 +835,71 @@ private fun AccountSkinOperation(
                 },
                 onApplySkin = { file, model ->
                     actions.onIntent(AccountManageIntent.ApplySkin(account, file, model))
+},
+            onApplyCape = { cape ->
+                actions.onIntent(AccountManageIntent.ApplyMicrosoftCape(account, cape))
+            }
+        )
+    }
+}
+}
+
+/**
+ * 通用账号管理操作逻辑处理（如删除确认）
+ */
+@Composable
+private fun AccountOperation(
+    operation: AccountOperation,
+    actions: AccountActions
+) {
+    when (operation) {
+        is AccountOperation.Delete -> {
+            SimpleAlertDialog(
+                title = stringResource(R.string.account_delete_title),
+                text = stringResource(R.string.account_delete_message, operation.account.username),
+                onConfirm = { actions.onIntent(AccountManageIntent.DeleteAccount(operation.account)) },
+                onDismiss = { actions.onIntent(AccountManageIntent.UpdateAccountOp(AccountOperation.None)) }
+            )
+        }
+
+        is AccountOperation.OnFailed -> {
+            LaunchedEffect(operation) {
+                actions.submitError(
+                    ErrorViewModel.ThrowableMessage(
+                        title = androidText(R.string.account_logging_in_failed),
+                        message = actions.formatError(operation.th)
+                    )
+                )
+                actions.onIntent(AccountManageIntent.UpdateAccountOp(AccountOperation.None))
+            }
+        }
+
+        is AccountOperation.None -> {}
+    }
+}
+
+@Preview(showBackground = true, widthDp = 800, heightDp = 480)
+@Composable
+private fun AccountManageContentPreview() {
+    CompositionLocalProvider(LocalBackgroundViewModel provides null) {
+        MaterialExpressiveTheme {
+            Surface {
+                AccountManageContent(
+                    isVisible = true,
+                    loginUiState = AccountManageViewModel.LoginUiState(),
+                    profileUiState = AccountManageViewModel.ProfileUiState(),
+                    operationUiState = AccountManageViewModel.OperationUiState(),
+                    actions = AccountActions(
+                        onIntent = {},
+                        openLink = {},
+                        backToMainScreen = {},
+                        navigateToWeb = {},
+                        checkIfInWebScreen = { false },
+                        formatError = { AndroidStringText.Text("") },
+                        submitError = {},
+                    )
+                )
+            }
+        }
+    }
+}
