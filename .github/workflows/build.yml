@@ -2,20 +2,36 @@ name: Build APK
 
 on:
   workflow_dispatch:
+    inputs:
+      variant:
+        description: Android build variant
+        required: true
+        type: choice
+        options:
+          - Debug
+          - Release
+        default: Release
   workflow_call:
     inputs:
       variant:
         required: true
         type: string
     secrets:
+      KEYSTORE_BASE64:
+        required: false
       KEY_PASSWORD:
         required: false
       STORE_PASSWORD:
+        required: false
+      KEY_ALIAS:
         required: false
       OAUTH_CLIENT_ID:
         required: false
       CURSEFORGE_API_KEY:
         required: false
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -27,8 +43,6 @@ jobs:
       fail-fast: false
 
     env:
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
       OAUTH_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID }}
       CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
@@ -43,6 +57,9 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
@@ -74,40 +91,58 @@ jobs:
 
       - name: Setup Android NDK
         run: |
-          ndk=$(ls -d "$ANDROID_HOME"/ndk/* 2>/dev/null | sort -V | tail -1)
-          if [ -z "$ndk" ] || [ ! -f "$ndk/source.properties" ]; then
-            sdkmanager --install "ndk;27.0.12077973"
-            ndk=$(ls -d "$ANDROID_HOME"/ndk/* | sort -V | tail -1)
-          fi
+          sdkmanager --install "ndk;25.2.9519653"
+          ndk="$ANDROID_HOME/ndk/25.2.9519653"
           echo "Using NDK at $ndk"
           test -f "$ndk/source.properties"
           echo "ANDROID_NDK_HOME=$ndk" >> "$GITHUB_ENV"
 
+      - name: Decode release keystore
+        if: inputs.variant == 'Release'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "Release signing secrets are incomplete; Gradle will use debug signing."
+            exit 0
+          fi
+          umask 077
+          keystore_path="$RUNNER_TEMP/zalith-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          echo "KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
       - name: Build APK for ${{ matrix.arch }}
+        env:
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew ZalithLauncher:assemble${{ inputs.variant }} -Darch=${{ matrix.arch }}
 
       - name: Upload Release APK for ${{ matrix.arch }}
         if: inputs.variant == 'Release'
-        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: release apk (${{ matrix.arch }})
+          name: release-apk-${{ matrix.arch }}
           path: ZalithLauncher/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
       - name: Upload Release Mapping for ${{ matrix.arch }}
         if: inputs.variant == 'Release'
-        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: mapping (${{ matrix.arch }})
+          name: release-mapping-${{ matrix.arch }}
           path: ZalithLauncher/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
 
       - name: Upload Debug APK for ${{ matrix.arch }}
         if: inputs.variant == 'Debug'
-        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: debug apk (${{ matrix.arch }})
+          name: debug-apk-${{ matrix.arch }}
           path: ZalithLauncher/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

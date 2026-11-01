@@ -16,6 +16,9 @@ local.properties
 LWJGL/build/
 LWJGL/*/build/
 
+zalith_release.jks
+zalith_release.jks.base64
+
 # AI agent
 .zcode/
 .agent/
@@ -31,4 +34,3 @@ LWJGL/*/build/
 .ampersand/
 
 .vscode/
-

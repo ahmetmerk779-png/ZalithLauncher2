@@ -28,7 +28,14 @@ val defaultKeyPassword = project.findProperty("default_key_password") as? String
 val defaultCurseForgeApiKey = project.findProperty("curseforge_api_key") as? String
 
 val projectArch: String = System.getProperty("arch", "all")
-val releaseSigningEnabled = !System.getenv("STORE_PASSWORD").isNullOrBlank() && !System.getenv("KEY_PASSWORD").isNullOrBlank()
+val releaseKeystoreFile = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }?.let { File(it) }
+val releaseStorePassword = System.getenv("STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+val releaseKeyPassword = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+val releaseKeyAlias = System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() }
+val releaseSigningEnabled = releaseKeystoreFile?.isFile == true &&
+    releaseStorePassword != null &&
+    releaseKeyPassword != null &&
+    releaseKeyAlias != null
 
 fun getKeyFromLocal(envKey: String, fileName: String? = null, default: String? = null): String {
     val key = System.getenv(envKey)
@@ -51,11 +58,10 @@ android {
 
     signingConfigs {
         create("releaseBuild") {
-            val customKeystorePath = System.getenv("KEYSTORE_PATH")
-            storeFile = if (customKeystorePath != null && customKeystorePath.isNotBlank()) file(customKeystorePath) else file("zalith_launcher.jks")
-            storePassword = getKeyFromLocal("STORE_PASSWORD", ".store_password.txt")
-            keyAlias = System.getenv("KEY_ALIAS") ?: "movtery_zalith"
-            keyPassword = getKeyFromLocal("KEY_PASSWORD", ".key_password.txt")
+            storeFile = if (releaseSigningEnabled) releaseKeystoreFile else file("zalith_launcher_debug.jks")
+            storePassword = releaseStorePassword.takeIf { releaseSigningEnabled } ?: defaultStorePassword
+            keyAlias = releaseKeyAlias.takeIf { releaseSigningEnabled } ?: "movtery_zalith_debug"
+            keyPassword = releaseKeyPassword.takeIf { releaseSigningEnabled } ?: defaultKeyPassword
         }
         create("debugBuild") {
             storeFile = file("zalith_launcher_debug.jks")
@@ -79,7 +85,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = if (releaseSigningEnabled) signingConfigs.getByName("releaseBuild") else signingConfigs.getByName("debugBuild")
+            signingConfig = signingConfigs.getByName("releaseBuild")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
