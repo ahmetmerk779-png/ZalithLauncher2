@@ -28,6 +28,7 @@ val defaultKeyPassword = project.findProperty("default_key_password") as? String
 val defaultCurseForgeApiKey = project.findProperty("curseforge_api_key") as? String
 
 val projectArch: String = System.getProperty("arch", "all")
+val releaseSigningEnabled = !System.getenv("STORE_PASSWORD").isNullOrBlank() && !System.getenv("KEY_PASSWORD").isNullOrBlank()
 
 fun getKeyFromLocal(envKey: String, fileName: String? = null, default: String? = null): String {
     val key = System.getenv(envKey)
@@ -50,9 +51,10 @@ android {
 
     signingConfigs {
         create("releaseBuild") {
-            storeFile = file("zalith_launcher.jks")
+            val customKeystorePath = System.getenv("KEYSTORE_PATH")
+            storeFile = if (customKeystorePath != null && customKeystorePath.isNotBlank()) file(customKeystorePath) else file("zalith_launcher.jks")
             storePassword = getKeyFromLocal("STORE_PASSWORD", ".store_password.txt")
-            keyAlias = "movtery_zalith"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "movtery_zalith"
             keyPassword = getKeyFromLocal("KEY_PASSWORD", ".key_password.txt")
         }
         create("debugBuild") {
@@ -77,9 +79,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            // Fall back to the debug signing key when no release secret is configured,
-            // so GitHub Actions can still produce an APK without a custom signing setup.
-            signingConfig = signingConfigs.getByName("debugBuild")
+            signingConfig = if (releaseSigningEnabled) signingConfigs.getByName("releaseBuild") else signingConfigs.getByName("debugBuild")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
