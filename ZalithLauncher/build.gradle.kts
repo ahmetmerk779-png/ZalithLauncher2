@@ -77,7 +77,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("releaseBuild")
+            // Fall back to the debug signing key when no release secret is configured,
+            // so GitHub Actions can still produce an APK without a custom signing setup.
+            signingConfig = signingConfigs.getByName("debugBuild")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -213,7 +215,6 @@ androidComponents {
         }
     }
 }
-
 
 kotlin {
     compilerOptions {
